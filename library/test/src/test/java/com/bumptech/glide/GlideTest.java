@@ -1,5 +1,6 @@
 package com.bumptech.glide;
 
+import static com.bumptech.glide.RobolectricConstants.ROBOLECTRIC_SDK;
 import static com.bumptech.glide.request.RequestOptions.decodeTypeOf;
 import static com.bumptech.glide.request.RequestOptions.errorOf;
 import static com.bumptech.glide.request.RequestOptions.placeholderOf;
@@ -26,9 +27,7 @@ import android.graphics.Color;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
-import android.media.MediaMetadataRetriever;
 import android.net.Uri;
-import android.os.Handler;
 import android.os.ParcelFileDescriptor;
 import android.view.ViewGroup;
 import android.widget.ImageView;
@@ -52,6 +51,7 @@ import com.bumptech.glide.load.model.MultiModelLoaderFactory;
 import com.bumptech.glide.load.resource.gif.GifDrawable;
 import com.bumptech.glide.manager.Lifecycle;
 import com.bumptech.glide.manager.RequestManagerTreeNode;
+import com.bumptech.glide.module.GlideModule;
 import com.bumptech.glide.request.Request;
 import com.bumptech.glide.request.RequestListener;
 import com.bumptech.glide.request.RequestOptions;
@@ -59,7 +59,6 @@ import com.bumptech.glide.request.target.CustomTarget;
 import com.bumptech.glide.request.target.SizeReadyCallback;
 import com.bumptech.glide.request.target.Target;
 import com.bumptech.glide.request.transition.Transition;
-import com.bumptech.glide.tests.GlideShadowLooper;
 import com.bumptech.glide.tests.TearDownGlide;
 import com.bumptech.glide.tests.Util;
 import com.bumptech.glide.testutil.TestResourceUtil;
@@ -69,6 +68,7 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.ByteBuffer;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.Before;
@@ -82,25 +82,20 @@ import org.mockito.MockitoAnnotations;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.robolectric.RobolectricTestRunner;
-import org.robolectric.Shadows;
 import org.robolectric.annotation.Config;
 import org.robolectric.annotation.Implementation;
 import org.robolectric.annotation.Implements;
 import org.robolectric.annotation.LooperMode;
 import org.robolectric.annotation.Resetter;
 import org.robolectric.shadow.api.Shadow;
-import org.robolectric.shadows.ShadowBitmap;
 
 /** Tests for the {@link Glide} interface and singleton. */
 @LooperMode(LEGACY)
 @RunWith(RobolectricTestRunner.class)
 @Config(
-    sdk = 18,
+    sdk = ROBOLECTRIC_SDK,
     shadows = {
       GlideTest.ShadowFileDescriptorContentResolver.class,
-      GlideTest.ShadowMediaMetadataRetriever.class,
-      GlideShadowLooper.class,
-      GlideTest.MutableShadowBitmap.class
     })
 @SuppressWarnings("unchecked")
 public class GlideTest {
@@ -116,7 +111,6 @@ public class GlideTest {
   @Mock private DiskCache.Factory diskCacheFactory;
   @Mock private DiskCache diskCache;
   @Mock private MemoryCache memoryCache;
-  @Mock private Handler bgHandler;
   @Mock private Lifecycle lifecycle;
   @Mock private RequestManagerTreeNode treeNode;
   @Mock private BitmapPool bitmapPool;
@@ -155,17 +149,6 @@ public class GlideTest {
     imageView.layout(0, 0, 100, 100);
     doAnswer(new CallSizeReady()).when(target).getSize(isA(SizeReadyCallback.class));
 
-    when(bgHandler.post(isA(Runnable.class)))
-        .thenAnswer(
-            new Answer<Boolean>() {
-              @Override
-              public Boolean answer(InvocationOnMock invocation) {
-                Runnable runnable = (Runnable) invocation.getArguments()[0];
-                runnable.run();
-                return true;
-              }
-            });
-
     requestManager = new RequestManager(Glide.get(context), lifecycle, treeNode, context);
     requestManager.resumeRequests();
   }
@@ -173,8 +156,7 @@ public class GlideTest {
   @Test
   public void testCanSetMemoryCategory() {
     MemoryCategory memoryCategory = MemoryCategory.NORMAL;
-    Glide glide =
-        new GlideBuilder().setBitmapPool(bitmapPool).setMemoryCache(memoryCache).build(context);
+    Glide glide = buildGlideWithFakePools();
     glide.setMemoryCategory(memoryCategory);
 
     verify(memoryCache).setSizeMultiplier(eq(memoryCategory.getMultiplier()));
@@ -184,8 +166,7 @@ public class GlideTest {
   @Test
   public void testCanIncreaseMemoryCategory() {
     MemoryCategory memoryCategory = MemoryCategory.NORMAL;
-    Glide glide =
-        new GlideBuilder().setBitmapPool(bitmapPool).setMemoryCache(memoryCache).build(context);
+    Glide glide = buildGlideWithFakePools();
     glide.setMemoryCategory(memoryCategory);
 
     verify(memoryCache).setSizeMultiplier(eq(memoryCategory.getMultiplier()));
@@ -203,8 +184,7 @@ public class GlideTest {
   @Test
   public void testCanDecreaseMemoryCategory() {
     MemoryCategory memoryCategory = MemoryCategory.NORMAL;
-    Glide glide =
-        new GlideBuilder().setBitmapPool(bitmapPool).setMemoryCache(memoryCache).build(context);
+    Glide glide = buildGlideWithFakePools();
     glide.setMemoryCategory(memoryCategory);
 
     verify(memoryCache).setSizeMultiplier(eq(memoryCategory.getMultiplier()));
@@ -221,8 +201,7 @@ public class GlideTest {
 
   @Test
   public void testClearMemory() {
-    Glide glide =
-        new GlideBuilder().setBitmapPool(bitmapPool).setMemoryCache(memoryCache).build(context);
+    Glide glide = buildGlideWithFakePools();
 
     glide.clearMemory();
 
@@ -232,8 +211,7 @@ public class GlideTest {
 
   @Test
   public void testTrimMemory() {
-    Glide glide =
-        new GlideBuilder().setBitmapPool(bitmapPool).setMemoryCache(memoryCache).build(context);
+    Glide glide = buildGlideWithFakePools();
 
     final int level = 123;
 
@@ -241,6 +219,16 @@ public class GlideTest {
 
     verify(bitmapPool).trimMemory(eq(level));
     verify(memoryCache).trimMemory(eq(level));
+  }
+
+  private Glide buildGlideWithFakePools() {
+    return new GlideBuilder()
+        .setBitmapPool(bitmapPool)
+        .setMemoryCache(memoryCache)
+        .build(
+            context,
+            Collections.<GlideModule>emptyList(),
+            /* annotationGeneratedGlideModule= */ null);
   }
 
   @Test
@@ -433,17 +421,17 @@ public class GlideTest {
               public boolean onLoadFailed(
                   GlideException e,
                   Object model,
-                  Target<Drawable> target,
+                  @NonNull Target<Drawable> target,
                   boolean isFirstResource) {
                 throw new RuntimeException("Load failed");
               }
 
               @Override
               public boolean onResourceReady(
-                  Drawable resource,
-                  Object model,
+                  @NonNull Drawable resource,
+                  @NonNull Object model,
                   Target<Drawable> target,
-                  DataSource dataSource,
+                  @NonNull DataSource dataSource,
                   boolean isFirstResource) {
                 return false;
               }
@@ -870,29 +858,6 @@ public class GlideTest {
             "You must first register an AssetFileDescriptor for " + "uri: " + uri);
       }
       return URI_TO_FILE_DESCRIPTOR.get(uri);
-    }
-  }
-
-  @Implements(Bitmap.class)
-  public static class MutableShadowBitmap extends ShadowBitmap {
-
-    @Implementation
-    public static Bitmap createBitmap(int width, int height, Bitmap.Config config) {
-      Bitmap bitmap = ShadowBitmap.createBitmap(width, height, config);
-      Shadows.shadowOf(bitmap).setMutable(true);
-      return bitmap;
-    }
-  }
-
-  @Implements(MediaMetadataRetriever.class)
-  public static class ShadowMediaMetadataRetriever {
-
-    @Implementation
-    @SuppressWarnings("unused")
-    public Bitmap getFrameAtTime() {
-      Bitmap bitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888);
-      Shadows.shadowOf(bitmap).appendDescription(" from MediaMetadataRetriever");
-      return bitmap;
     }
   }
 }

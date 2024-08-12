@@ -4,9 +4,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
-import static org.robolectric.annotation.LooperMode.Mode.LEGACY;
 
 import android.os.Looper;
 import androidx.annotation.NonNull;
@@ -14,7 +12,6 @@ import com.bumptech.glide.load.Key;
 import com.bumptech.glide.load.engine.ActiveResources.DequeuedResourceCallback;
 import com.bumptech.glide.load.engine.ActiveResources.ResourceWeakReference;
 import com.bumptech.glide.load.engine.EngineResource.ResourceListener;
-import com.bumptech.glide.tests.GlideShadowLooper;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
@@ -29,12 +26,8 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.Shadows;
-import org.robolectric.annotation.Config;
-import org.robolectric.annotation.LooperMode;
 
-@LooperMode(LEGACY)
 @RunWith(RobolectricTestRunner.class)
-@Config(shadows = GlideShadowLooper.class)
 public class ActiveResourcesTest {
 
   @Mock private ResourceListener listener;
@@ -46,10 +39,8 @@ public class ActiveResourcesTest {
   @Before
   public void setUp() {
     MockitoAnnotations.initMocks(this);
-    resources = new ActiveResources(/*isActiveResourceRetentionAllowed=*/ true);
+    resources = new ActiveResources(/* isActiveResourceRetentionAllowed= */ true);
     resources.setListener(listener);
-
-    reset(GlideShadowLooper.queue);
   }
 
   @After
@@ -249,7 +240,7 @@ public class ActiveResourcesTest {
       final CountDownLatch blockExecutor = new CountDownLatch(1);
       resources =
           new ActiveResources(
-              /*isActiveResourceRetentionAllowed=*/ true,
+              /* isActiveResourceRetentionAllowed= */ true,
               new Executor() {
                 @Override
                 public void execute(@NonNull final Runnable command) {
@@ -294,7 +285,7 @@ public class ActiveResourcesTest {
       final CountDownLatch blockExecutor = new CountDownLatch(1);
       resources =
           new ActiveResources(
-              /*isActiveResourceRetentionAllowed=*/ true,
+              /* isActiveResourceRetentionAllowed= */ true,
               new Executor() {
                 @Override
                 public void execute(@NonNull final Runnable command) {
@@ -344,7 +335,7 @@ public class ActiveResourcesTest {
 
   @Test
   public void get_withActiveClearedKey_cacheableResource_retentionDisabled_doesNotCallListener() {
-    resources = new ActiveResources(/*isActiveResourceRetentionAllowed=*/ false);
+    resources = new ActiveResources(/* isActiveResourceRetentionAllowed= */ false);
     resources.setListener(listener);
     EngineResource<Object> engineResource = newCacheableEngineResource();
     resources.activate(key, engineResource);
@@ -356,7 +347,7 @@ public class ActiveResourcesTest {
 
   @Test
   public void queueIdle_withQueuedReferenceRetrievedFromGet_retentionDisabled_doesNotNotify() {
-    resources = new ActiveResources(/*isActiveResourceRetentionAllowed=*/ false);
+    resources = new ActiveResources(/* isActiveResourceRetentionAllowed= */ false);
     resources.setListener(listener);
     EngineResource<Object> engineResource = newCacheableEngineResource();
     resources.activate(key, engineResource);
@@ -401,12 +392,12 @@ public class ActiveResourcesTest {
 
   private EngineResource<Object> newCacheableEngineResource() {
     return new EngineResource<>(
-        resource, /*isMemoryCacheable=*/ true, /*isRecyclable=*/ false, key, listener);
+        resource, /* isMemoryCacheable= */ true, /* isRecyclable= */ false, key, listener);
   }
 
   private EngineResource<Object> newNonCacheableEngineResource() {
     return new EngineResource<>(
-        resource, /*isMemoryCacheable=*/ false, /*isRecyclable=*/ false, key, listener);
+        resource, /* isMemoryCacheable= */ false, /* isRecyclable= */ false, key, listener);
   }
 
   @SuppressWarnings("unchecked")

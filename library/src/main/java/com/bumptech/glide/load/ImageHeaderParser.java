@@ -30,6 +30,12 @@ public interface ImageHeaderParser {
     WEBP_A(true),
     /** WebP type without alpha. */
     WEBP(false),
+    /** All animated webps. */
+    ANIMATED_WEBP(true),
+    /** Avif type (may contain alpha). */
+    AVIF(true),
+    /** Animated Avif type (may contain alpha). */
+    ANIMATED_AVIF(true),
     /** Unrecognized type. */
     UNKNOWN(false);
 
@@ -41,6 +47,17 @@ public interface ImageHeaderParser {
 
     public boolean hasAlpha() {
       return hasAlpha;
+    }
+
+    public boolean isWebp() {
+      switch (this) {
+        case WEBP:
+        case WEBP_A:
+        case ANIMATED_WEBP:
+          return true;
+        default:
+          return false;
+      }
     }
   }
 

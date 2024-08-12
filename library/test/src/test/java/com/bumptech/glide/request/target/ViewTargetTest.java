@@ -1,7 +1,5 @@
 package com.bumptech.glide.request.target;
 
-import static android.view.ViewGroup.LayoutParams;
-import static android.view.ViewTreeObserver.OnPreDrawListener;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -20,7 +18,9 @@ import android.os.Build;
 import android.view.Display;
 import android.view.View;
 import android.view.View.OnAttachStateChangeListener;
+import android.view.ViewGroup.LayoutParams;
 import android.view.ViewTreeObserver;
+import android.view.ViewTreeObserver.OnPreDrawListener;
 import android.view.WindowManager;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -248,7 +248,8 @@ public class ViewTargetTest {
       target.getSize(cbs[i]);
     }
 
-    int width = 100, height = 111;
+    int width = 100;
+    int height = 111;
     shadowView.setWidth(width).setHeight(height).setIsLaidOut(true);
     shadowObserver.fireOnPreDrawListeners();
 
@@ -484,7 +485,7 @@ public class ViewTargetTest {
   @Test
   public void clearOnDetach_onDetach_afterOnLoadCleared_removesListener() {
     attachStateTarget.clearOnDetach();
-    attachStateTarget.onLoadCleared(/*placeholder=*/ null);
+    attachStateTarget.onLoadCleared(/* placeholder= */ null);
     attachStateTarget.setRequest(request);
     shadowView.callOnDetachedFromWindow();
 
@@ -501,7 +502,7 @@ public class ViewTargetTest {
   @Test
   public void clearOnDetach_onDetach_afterMultipleClearOnDetaches_removesListener() {
     attachStateTarget.clearOnDetach().clearOnDetach().clearOnDetach();
-    attachStateTarget.onLoadCleared(/*placeholder=*/ null);
+    attachStateTarget.onLoadCleared(/* placeholder= */ null);
     attachStateTarget.setRequest(request);
     shadowView.callOnDetachedFromWindow();
 
@@ -552,8 +553,8 @@ public class ViewTargetTest {
     attachStateTarget.clearOnDetach();
     attachStateTarget.setRequest(request);
     when(request.isCleared()).thenReturn(true);
-    attachStateTarget.onLoadCleared(/*placeholder=*/ null);
-    attachStateTarget.onLoadStarted(/*placeholder=*/ null);
+    attachStateTarget.onLoadCleared(/* placeholder= */ null);
+    attachStateTarget.onLoadStarted(/* placeholder= */ null);
     shadowView.callOnAttachedToWindow();
 
     verify(request).begin();
@@ -564,7 +565,7 @@ public class ViewTargetTest {
     attachStateTarget.clearOnDetach();
     attachStateTarget.setRequest(request);
     when(request.isCleared()).thenReturn(true);
-    attachStateTarget.onLoadCleared(/*placeholder=*/ null);
+    attachStateTarget.onLoadCleared(/* placeholder= */ null);
     shadowView.callOnAttachedToWindow();
 
     verify(request, never()).begin();
@@ -572,7 +573,7 @@ public class ViewTargetTest {
 
   @Test
   public void onLoadStarted_withoutClearOnDetach_doesNotAddListener() {
-    attachStateTarget.onLoadStarted(/*placeholder=*/ null);
+    attachStateTarget.onLoadStarted(/* placeholder= */ null);
 
     assertThat(shadowView.attachStateListeners).isEmpty();
   }
@@ -591,7 +592,7 @@ public class ViewTargetTest {
         };
     shadowView.addOnAttachStateChangeListener(expected);
 
-    attachStateTarget.onLoadCleared(/*placeholder=*/ null);
+    attachStateTarget.onLoadCleared(/* placeholder= */ null);
 
     assertThat(shadowView.attachStateListeners).containsExactly(expected);
   }

@@ -65,6 +65,7 @@ public final class Downsampler {
    */
   public static final Option<PreferredColorSpace> PREFERRED_COLOR_SPACE =
       Option.memory("com.bumptech.glide.load.resource.bitmap.Downsampler.PreferredColorSpace");
+
   /**
    * Indicates the {@link com.bumptech.glide.load.resource.bitmap.DownsampleStrategy} option that
    * will be used to calculate the sample size to use to downsample an image given the original and
@@ -74,6 +75,7 @@ public final class Downsampler {
    */
   @Deprecated
   public static final Option<DownsampleStrategy> DOWNSAMPLE_STRATEGY = DownsampleStrategy.OPTION;
+
   /**
    * Ensure that the size of the bitmap is fixed to the requested width and height of the resource
    * from the caller. The final resource dimensions may differ from the requested width and height,
@@ -575,7 +577,7 @@ public final class Downsampler {
     } else if (imageType == ImageType.PNG || imageType == ImageType.PNG_A) {
       powerOfTwoWidth = (int) Math.floor(orientedSourceWidth / (float) powerOfTwoSampleSize);
       powerOfTwoHeight = (int) Math.floor(orientedSourceHeight / (float) powerOfTwoSampleSize);
-    } else if (imageType == ImageType.WEBP || imageType == ImageType.WEBP_A) {
+    } else if (imageType.isWebp()) {
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
         powerOfTwoWidth = Math.round(orientedSourceWidth / (float) powerOfTwoSampleSize);
         powerOfTwoHeight = Math.round(orientedSourceHeight / (float) powerOfTwoSampleSize);

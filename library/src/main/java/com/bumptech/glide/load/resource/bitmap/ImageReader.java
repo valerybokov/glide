@@ -3,10 +3,8 @@ package com.bumptech.glide.load.resource.bitmap;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.BitmapFactory.Options;
-import android.os.Build;
 import android.os.ParcelFileDescriptor;
 import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
 import com.bumptech.glide.load.ImageHeaderParser;
 import com.bumptech.glide.load.ImageHeaderParser.ImageType;
 import com.bumptech.glide.load.ImageHeaderParserUtils;
@@ -17,6 +15,7 @@ import com.bumptech.glide.load.engine.bitmap_recycle.ArrayPool;
 import com.bumptech.glide.util.ByteBufferUtil;
 import com.bumptech.glide.util.Preconditions;
 import java.io.File;
+import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -29,6 +28,7 @@ import java.util.List;
  * type wrapped into a {@link DataRewinder}.
  */
 interface ImageReader {
+
   @Nullable
   Bitmap decodeBitmap(BitmapFactory.Options options) throws IOException;
 
@@ -53,7 +53,7 @@ interface ImageReader {
     @Nullable
     @Override
     public Bitmap decodeBitmap(Options options) {
-      return BitmapFactory.decodeByteArray(bytes, /* offset= */ 0, bytes.length, options);
+      return GlideBitmapFactory.decodeByteArray(bytes, options);
     }
 
     @Override
@@ -88,7 +88,7 @@ interface ImageReader {
       InputStream is = null;
       try {
         is = new RecyclableBufferedInputStream(new FileInputStream(file), byteArrayPool);
-        return BitmapFactory.decodeStream(is, /* outPadding= */ null, options);
+        return GlideBitmapFactory.decodeStream(is, options);
       } finally {
         if (is != null) {
           try {
@@ -153,7 +153,8 @@ interface ImageReader {
     @Nullable
     @Override
     public Bitmap decodeBitmap(Options options) {
-      return BitmapFactory.decodeStream(stream(), /* outPadding= */ null, options);
+      InputStream inputStream = stream();
+      return GlideBitmapFactory.decodeStream(inputStream, options);
     }
 
     @Override
@@ -191,7 +192,8 @@ interface ImageReader {
     @Nullable
     @Override
     public Bitmap decodeBitmap(BitmapFactory.Options options) throws IOException {
-      return BitmapFactory.decodeStream(dataRewinder.rewindAndGet(), null, options);
+      InputStream inputStream = dataRewinder.rewindAndGet();
+      return GlideBitmapFactory.decodeStream(inputStream, options);
     }
 
     @Override
@@ -211,7 +213,6 @@ interface ImageReader {
     }
   }
 
-  @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
   final class ParcelFileDescriptorImageReader implements ImageReader {
     private final ArrayPool byteArrayPool;
     private final List<ImageHeaderParser> parsers;
@@ -230,8 +231,9 @@ interface ImageReader {
     @Nullable
     @Override
     public Bitmap decodeBitmap(BitmapFactory.Options options) throws IOException {
-      return BitmapFactory.decodeFileDescriptor(
-          dataRewinder.rewindAndGet().getFileDescriptor(), null, options);
+      ParcelFileDescriptor parcelFileDescriptor = dataRewinder.rewindAndGet();
+      FileDescriptor fileDescriptor = parcelFileDescriptor.getFileDescriptor();
+      return GlideBitmapFactory.decodeFileDescriptor(fileDescriptor, options);
     }
 
     @Override

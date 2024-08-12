@@ -28,19 +28,19 @@ public final class GlideExecutor implements ExecutorService {
    * The default thread name prefix for executors used to load/decode/transform data not found in
    * cache.
    */
-  private static final String DEFAULT_SOURCE_EXECUTOR_NAME = "source";
+  static final String DEFAULT_SOURCE_EXECUTOR_NAME = "source";
 
   /**
    * The default thread name prefix for executors used to load/decode/transform data found in
    * Glide's cache.
    */
-  private static final String DEFAULT_DISK_CACHE_EXECUTOR_NAME = "disk-cache";
+  static final String DEFAULT_DISK_CACHE_EXECUTOR_NAME = "disk-cache";
 
   /**
    * The default thread count for executors used to load/decode/transform data found in Glide's
    * cache.
    */
-  private static final int DEFAULT_DISK_CACHE_EXECUTOR_THREADS = 1;
+  static final int DEFAULT_DISK_CACHE_EXECUTOR_THREADS = 1;
 
   private static final String TAG = "GlideExecutor";
 
@@ -50,7 +50,7 @@ public final class GlideExecutor implements ExecutorService {
    */
   private static final String DEFAULT_SOURCE_UNLIMITED_EXECUTOR_NAME = "source-unlimited";
 
-  private static final String DEFAULT_ANIMATION_EXECUTOR_NAME = "animation";
+  static final String DEFAULT_ANIMATION_EXECUTOR_NAME = "animation";
 
   /** The default keep alive time for threads in our cached thread pools in milliseconds. */
   private static final long KEEP_ALIVE_TIME_MS = TimeUnit.SECONDS.toMillis(10);
@@ -72,7 +72,7 @@ public final class GlideExecutor implements ExecutorService {
    * <p>Disk cache executors do not allow network operations on their threads.
    */
   public static GlideExecutor.Builder newDiskCacheBuilder() {
-    return new GlideExecutor.Builder(/*preventNetworkOperations=*/ true)
+    return new GlideExecutor.Builder(/* preventNetworkOperations= */ true)
         .setThreadCount(DEFAULT_DISK_CACHE_EXECUTOR_THREADS)
         .setName(DEFAULT_DISK_CACHE_EXECUTOR_NAME);
   }
@@ -94,7 +94,9 @@ public final class GlideExecutor implements ExecutorService {
     return newDiskCacheBuilder().setUncaughtThrowableStrategy(uncaughtThrowableStrategy).build();
   }
 
-  /** @deprecated Use {@link #newDiskCacheBuilder()} instead. */
+  /**
+   * @deprecated Use {@link #newDiskCacheBuilder()} instead.
+   */
   // Public API.
   @SuppressWarnings("WeakerAccess")
   @Deprecated
@@ -117,7 +119,7 @@ public final class GlideExecutor implements ExecutorService {
    * <p>Source executors allow network operations on their threads.
    */
   public static GlideExecutor.Builder newSourceBuilder() {
-    return new GlideExecutor.Builder(/*preventNetworkOperations=*/ false)
+    return new GlideExecutor.Builder(/* preventNetworkOperations= */ false)
         .setThreadCount(calculateBestThreadCount())
         .setName(DEFAULT_SOURCE_EXECUTOR_NAME);
   }
@@ -127,7 +129,9 @@ public final class GlideExecutor implements ExecutorService {
     return newSourceBuilder().build();
   }
 
-  /** @deprecated Use {@link #newSourceBuilder()} instead. */
+  /**
+   * @deprecated Use {@link #newSourceBuilder()} instead.
+   */
   // Public API.
   @SuppressWarnings("unused")
   @Deprecated
@@ -136,7 +140,9 @@ public final class GlideExecutor implements ExecutorService {
     return newSourceBuilder().setUncaughtThrowableStrategy(uncaughtThrowableStrategy).build();
   }
 
-  /** @deprecated Use {@link #newSourceBuilder()} instead. */
+  /**
+   * @deprecated Use {@link #newSourceBuilder()} instead.
+   */
   // Public API.
   @SuppressWarnings("WeakerAccess")
   @Deprecated
@@ -152,7 +158,7 @@ public final class GlideExecutor implements ExecutorService {
   /**
    * Returns a new unlimited thread pool with zero core thread count to make sure no threads are
    * created by default, {@link #KEEP_ALIVE_TIME_MS} keep alive time, the {@link
-   * #SOURCE_UNLIMITED_EXECUTOR_NAME} thread name prefix, the {@link
+   * #DEFAULT_SOURCE_UNLIMITED_EXECUTOR_NAME} thread name prefix, the {@link
    * com.bumptech.glide.load.engine.executor.GlideExecutor.UncaughtThrowableStrategy#DEFAULT}
    * uncaught throwable strategy, and the {@link SynchronousQueue} since using default unbounded
    * blocking queue, for example, {@link PriorityBlockingQueue} effectively won't create more than
@@ -184,17 +190,20 @@ public final class GlideExecutor implements ExecutorService {
    * <p>Animation executors do not allow network operations on their threads.
    */
   public static GlideExecutor.Builder newAnimationBuilder() {
+    int maximumPoolSize = calculateAnimationExecutorThreadCount();
+    return new GlideExecutor.Builder(/* preventNetworkOperations= */ true)
+        .setThreadCount(maximumPoolSize)
+        .setName(DEFAULT_ANIMATION_EXECUTOR_NAME);
+  }
+
+  static int calculateAnimationExecutorThreadCount() {
     int bestThreadCount = calculateBestThreadCount();
     // We don't want to add a ton of threads running animations in parallel with our source and
     // disk cache executors. Doing so adds unnecessary CPU load and can also dramatically increase
     // our maximum memory usage. Typically one thread is sufficient here, but for higher end devices
     // with more cores, two threads can provide better performance if lots of GIFs are showing at
     // once.
-    int maximumPoolSize = bestThreadCount >= 4 ? 2 : 1;
-
-    return new GlideExecutor.Builder(/*preventNetworkOperations=*/ true)
-        .setThreadCount(maximumPoolSize)
-        .setName(DEFAULT_ANIMATION_EXECUTOR_NAME);
+    return bestThreadCount >= 4 ? 2 : 1;
   }
 
   /** Shortcut for calling {@link Builder#build()} on {@link #newAnimationBuilder()}. */
@@ -202,7 +211,9 @@ public final class GlideExecutor implements ExecutorService {
     return newAnimationBuilder().build();
   }
 
-  /** @deprecated Use {@link #newAnimationBuilder()} instead. */
+  /**
+   * @deprecated Use {@link #newAnimationBuilder()} instead.
+   */
   // Public API.
   @SuppressWarnings("WeakerAccess")
   @Deprecated
@@ -434,7 +445,7 @@ public final class GlideExecutor implements ExecutorService {
     private int corePoolSize;
     private int maximumPoolSize;
 
-    @NonNull private final ThreadFactory threadFactory = new DefaultPriorityThreadFactory();
+    @NonNull private ThreadFactory threadFactory = new DefaultPriorityThreadFactory();
 
     @NonNull
     private UncaughtThrowableStrategy uncaughtThrowableStrategy = UncaughtThrowableStrategy.DEFAULT;
@@ -466,6 +477,22 @@ public final class GlideExecutor implements ExecutorService {
     }
 
     /**
+     * Sets the {@link ThreadFactory} responsible for creating threads and setting their priority.
+     *
+     * <p>Usage of this method may override other options on this builder. No guarantees are
+     * provided with regards to the behavior of this method or how it interacts with other methods
+     * on the builder. Use at your own risk.
+     *
+     * @deprecated This is an experimental method that may be removed without warning in a future
+     *     version.
+     */
+    @Deprecated
+    public Builder setThreadFactory(@NonNull ThreadFactory threadFactory) {
+      this.threadFactory = threadFactory;
+      return this;
+    }
+
+    /**
      * Sets the {@link UncaughtThrowableStrategy} to use for unexpected exceptions thrown by tasks
      * on {@link GlideExecutor}s built by this {@code Builder}.
      */
@@ -493,7 +520,7 @@ public final class GlideExecutor implements ExecutorService {
           new ThreadPoolExecutor(
               corePoolSize,
               maximumPoolSize,
-              /*keepAliveTime=*/ threadTimeoutMillis,
+              /* keepAliveTime= */ threadTimeoutMillis,
               TimeUnit.MILLISECONDS,
               new PriorityBlockingQueue<Runnable>(),
               new DefaultThreadFactory(

@@ -4,14 +4,18 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Resources;
+import android.content.res.Resources.Theme;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.text.TextUtils;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import com.bumptech.glide.load.Option;
 import com.bumptech.glide.load.Options;
 import com.bumptech.glide.load.ResourceDecoder;
 import com.bumptech.glide.load.engine.Resource;
+import com.bumptech.glide.util.Preconditions;
 import java.util.List;
 
 /**
@@ -23,6 +27,11 @@ import java.util.List;
  * other packages.
  */
 public class ResourceDrawableDecoder implements ResourceDecoder<Uri, Drawable> {
+
+  /** Specifies a {@link Theme} which will be used to load the drawable. */
+  public static final Option<Theme> THEME =
+      Option.memory("com.bumptech.glide.load.resource.bitmap.Downsampler.Theme");
+
   /**
    * The package name to provide {@link Resources#getIdentifier(String, String, String)} when trying
    * to find system resource ids.
@@ -51,7 +60,8 @@ public class ResourceDrawableDecoder implements ResourceDecoder<Uri, Drawable> {
 
   @Override
   public boolean handles(@NonNull Uri source, @NonNull Options options) {
-    return source.getScheme().equals(ContentResolver.SCHEME_ANDROID_RESOURCE);
+    String scheme = source.getScheme();
+    return scheme != null && scheme.equals(ContentResolver.SCHEME_ANDROID_RESOURCE);
   }
 
   @Nullable
@@ -59,22 +69,34 @@ public class ResourceDrawableDecoder implements ResourceDecoder<Uri, Drawable> {
   public Resource<Drawable> decode(
       @NonNull Uri source, int width, int height, @NonNull Options options) {
     String packageName = source.getAuthority();
+    if (TextUtils.isEmpty(packageName)) {
+      throw new IllegalStateException("Package name for " + source + " is null or empty");
+    }
     Context targetContext = findContextForPackage(source, packageName);
     @DrawableRes int resId = findResourceIdFromUri(targetContext, source);
-    // We can't get a theme from another application.
-    Drawable drawable = DrawableDecoderCompat.getDrawable(context, targetContext, resId);
+    // Only use the provided theme if we're loading resources from our package. We can't get themes
+    // from other packages and we don't want to use a theme from our package when loading another
+    // package's resources.
+    Theme theme =
+        Preconditions.checkNotNull(packageName).equals(context.getPackageName())
+            ? options.get(THEME)
+            : null;
+    Drawable drawable =
+        theme == null
+            ? DrawableDecoderCompat.getDrawable(context, targetContext, resId)
+            : DrawableDecoderCompat.getDrawable(context, resId, theme);
     return NonOwnedDrawableResource.newInstance(drawable);
   }
 
   @NonNull
-  private Context findContextForPackage(Uri source, String packageName) {
+  private Context findContextForPackage(Uri source, @NonNull String packageName) {
     // Fast path
     if (packageName.equals(context.getPackageName())) {
       return context;
     }
 
     try {
-      return context.createPackageContext(packageName, /*flags=*/ 0);
+      return context.createPackageContext(packageName, /* flags= */ 0);
     } catch (NameNotFoundException e) {
       // The parent APK holds the correct context if the resource is located in a split
       if (packageName.contains(context.getPackageName())) {

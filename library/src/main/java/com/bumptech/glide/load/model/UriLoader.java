@@ -26,13 +26,14 @@ import java.util.Set;
  * @param <Data> The type of data that will be retrieved for {@link android.net.Uri}s.
  */
 public class UriLoader<Data> implements ModelLoader<Uri, Data> {
+
   private static final Set<String> SCHEMES =
       Collections.unmodifiableSet(
           new HashSet<>(
               Arrays.asList(
                   ContentResolver.SCHEME_FILE,
-                  ContentResolver.SCHEME_ANDROID_RESOURCE,
-                  ContentResolver.SCHEME_CONTENT)));
+                  ContentResolver.SCHEME_CONTENT,
+                  ContentResolver.SCHEME_ANDROID_RESOURCE)));
 
   private final LocalUriFetcherFactory<Data> factory;
 

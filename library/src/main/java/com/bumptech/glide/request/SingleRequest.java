@@ -248,6 +248,8 @@ public final class SingleRequest<R> implements Request, SizeReadyCallback, Resou
       // Restarts for requests that are neither complete nor running can be treated as new requests
       // and can run again from the beginning.
 
+      experimentalNotifyRequestStarted(model);
+
       cookie = GlideTrace.beginSectionAsync(TAG);
       status = Status.WAITING_FOR_SIZE;
       if (Util.isValidDimensions(overrideWidth, overrideHeight)) {
@@ -262,6 +264,17 @@ public final class SingleRequest<R> implements Request, SizeReadyCallback, Resou
       }
       if (IS_VERBOSE_LOGGABLE) {
         logV("finished run method in " + LogTime.getElapsedMillis(startTime));
+      }
+    }
+  }
+
+  private void experimentalNotifyRequestStarted(Object model) {
+    if (requestListeners == null) {
+      return;
+    }
+    for (RequestListener<?> requestListener : requestListeners) {
+      if (requestListener instanceof ExperimentalRequestListener) {
+        ((ExperimentalRequestListener<?>) requestListener).onRequestStarted(model);
       }
     }
   }
@@ -407,7 +420,7 @@ public final class SingleRequest<R> implements Request, SizeReadyCallback, Resou
   private Drawable loadDrawable(@DrawableRes int resourceId) {
     Theme theme =
         requestOptions.getTheme() != null ? requestOptions.getTheme() : context.getTheme();
-    return DrawableDecoderCompat.getDrawable(glideContext, resourceId, theme);
+    return DrawableDecoderCompat.getDrawable(context, resourceId, theme);
   }
 
   @GuardedBy("requestLock")
@@ -510,14 +523,14 @@ public final class SingleRequest<R> implements Request, SizeReadyCallback, Resou
   }
 
   @GuardedBy("requestLock")
-  private void notifyLoadSuccess() {
+  private void notifyRequestCoordinatorLoadSucceeded() {
     if (requestCoordinator != null) {
       requestCoordinator.onRequestSuccess(this);
     }
   }
 
   @GuardedBy("requestLock")
-  private void notifyLoadFailed() {
+  private void notifyRequestCoordinatorLoadFailed() {
     if (requestCoordinator != null) {
       requestCoordinator.onRequestFailed(this);
     }
@@ -626,6 +639,8 @@ public final class SingleRequest<R> implements Request, SizeReadyCallback, Resou
               + " ms");
     }
 
+    notifyRequestCoordinatorLoadSucceeded();
+
     isCallingCallbacks = true;
     try {
       boolean anyListenerHandledUpdatingTarget = false;
@@ -633,6 +648,14 @@ public final class SingleRequest<R> implements Request, SizeReadyCallback, Resou
         for (RequestListener<R> listener : requestListeners) {
           anyListenerHandledUpdatingTarget |=
               listener.onResourceReady(result, model, target, dataSource, isFirstResource);
+
+          if (listener instanceof ExperimentalRequestListener) {
+            ExperimentalRequestListener<R> experimentalRequestListener =
+                (ExperimentalRequestListener<R>) listener;
+            anyListenerHandledUpdatingTarget |=
+                experimentalRequestListener.onResourceReady(
+                    result, model, target, dataSource, isFirstResource, isAlternateCacheKey);
+          }
         }
       }
       anyListenerHandledUpdatingTarget |=
@@ -647,7 +670,6 @@ public final class SingleRequest<R> implements Request, SizeReadyCallback, Resou
       isCallingCallbacks = false;
     }
 
-    notifyLoadSuccess();
     GlideTrace.endSectionAsync(TAG, cookie);
   }
 
@@ -670,7 +692,9 @@ public final class SingleRequest<R> implements Request, SizeReadyCallback, Resou
       int logLevel = glideContext.getLogLevel();
       if (logLevel <= maxLogLevel) {
         Log.w(
-            GLIDE_TAG, "Load failed for " + model + " with size [" + width + "x" + height + "]", e);
+            GLIDE_TAG,
+            "Load failed for [" + model + "] with dimensions [" + width + "x" + height + "]",
+            e);
         if (logLevel <= Log.INFO) {
           e.logRootCauses(GLIDE_TAG);
         }
@@ -678,6 +702,8 @@ public final class SingleRequest<R> implements Request, SizeReadyCallback, Resou
 
       loadStatus = null;
       status = Status.FAILED;
+
+      notifyRequestCoordinatorLoadFailed();
 
       isCallingCallbacks = true;
       try {
@@ -700,7 +726,6 @@ public final class SingleRequest<R> implements Request, SizeReadyCallback, Resou
         isCallingCallbacks = false;
       }
 
-      notifyLoadFailed();
       GlideTrace.endSectionAsync(TAG, cookie);
     }
   }
@@ -753,7 +778,7 @@ public final class SingleRequest<R> implements Request, SizeReadyCallback, Resou
         && localOverrideHeight == otherLocalOverrideHeight
         && Util.bothModelsNullEquivalentOrEquals(localModel, otherLocalModel)
         && localTranscodeClass.equals(otherLocalTranscodeClass)
-        && localRequestOptions.equals(otherLocalRequestOptions)
+        && Util.bothBaseRequestOptionsNullEquivalentOrEquals(localRequestOptions, otherLocalRequestOptions)
         && localPriority == otherLocalPriority
         // We do not want to require that RequestListeners implement equals/hashcode, so we
         // don't compare them using equals(). We can however, at least assert that the same

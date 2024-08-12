@@ -1,29 +1,57 @@
 apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
+apply plugin: "org.jetbrains.kotlin.plugin.parcelize"
+apply plugin: 'com.google.devtools.ksp'
 
 dependencies {
     implementation project(':library')
+    implementation project(':integration:compose')
+    implementation project(':integration:ktx')
     implementation(project(':integration:recyclerview')) {
         transitive = false
     }
-    implementation "androidx.recyclerview:recyclerview:${ANDROID_X_VERSION}"
-    implementation "androidx.fragment:fragment:${ANDROID_X_FRAGMENT_VERSION}"
-    annotationProcessor project(':annotation:compiler')
+
+    implementation libs.androidx.recyclerview
+    implementation libs.androidx.fragment.ktx
+    implementation libs.androidx.core.ktx
+    implementation libs.coroutines.core
+    implementation libs.coroutines.android
+    implementation libs.kotlin.jdk7
+    implementation libs.compose.foundation
+    implementation libs.compose.ui
+
+    ksp project(':annotation:ksp')
+}
+
+kotlin {
+    jvmToolchain {
+        languageVersion.set(JavaLanguageVersion.of(11))
+    }
 }
 
 android {
-    compileSdkVersion COMPILE_SDK_VERSION as int
+    namespace 'com.bumptech.glide.samples.gallery'
+    compileSdk 34
 
     defaultConfig {
-        applicationId 'com.bumptech.glide.samples.gallery'
-        minSdkVersion MIN_SDK_VERSION as int
-        targetSdkVersion TARGET_SDK_VERSION as int
+        minSdk 29
+        targetSdk 34
         versionCode 1
         versionName '1.0'
     }
+    buildFeatures {
+        compose = true
+    }
+    kotlinOptions {
+        jvmTarget = "11"
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion libs.versions.kotlin.compiler.extension.get()
+    }
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_7
-        targetCompatibility JavaVersion.VERSION_1_7
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
     }
 }
 

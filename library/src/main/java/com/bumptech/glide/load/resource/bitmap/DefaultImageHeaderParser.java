@@ -1,5 +1,8 @@
 package com.bumptech.glide.load.resource.bitmap;
 
+import static com.bumptech.glide.load.ImageHeaderParser.ImageType.ANIMATED_AVIF;
+import static com.bumptech.glide.load.ImageHeaderParser.ImageType.ANIMATED_WEBP;
+import static com.bumptech.glide.load.ImageHeaderParser.ImageType.AVIF;
 import static com.bumptech.glide.load.ImageHeaderParser.ImageType.GIF;
 import static com.bumptech.glide.load.ImageHeaderParser.ImageType.JPEG;
 import static com.bumptech.glide.load.ImageHeaderParser.ImageType.PNG;
@@ -52,8 +55,16 @@ public final class DefaultImageHeaderParser implements ImageHeaderParser {
   private static final int VP8_HEADER_TYPE_EXTENDED = 0x00000058;
   // 'L'
   private static final int VP8_HEADER_TYPE_LOSSLESS = 0x0000004C;
+  private static final int WEBP_EXTENDED_ANIMATION_FLAG = 1 << 1;
   private static final int WEBP_EXTENDED_ALPHA_FLAG = 1 << 4;
   private static final int WEBP_LOSSLESS_ALPHA_FLAG = 1 << 3;
+  // Avif-related
+  // "ftyp"
+  private static final int FTYP_HEADER = 0x66747970;
+  // "avif"
+  private static final int AVIF_BRAND = 0x61766966;
+  // "avis"
+  private static final int AVIS_BRAND = 0x61766973;
 
   @NonNull
   @Override
@@ -116,12 +127,14 @@ public final class DefaultImageHeaderParser implements ImageHeaderParser {
         }
       }
 
-      // WebP (reads up to 21 bytes).
-      // See https://developers.google.com/speed/webp/docs/riff_container for details.
       if (firstFourBytes != RIFF_HEADER) {
-        return UNKNOWN;
+        // Check for AVIF (reads up to 32 bytes). If it is a valid AVIF stream, then the
+        // firstFourBytes will be the size of the FTYP box.
+        return sniffAvif(reader, /* boxSize= */ firstFourBytes);
       }
 
+      // WebP (reads up to 21 bytes).
+      // See https://developers.google.com/speed/webp/docs/riff_container for details.
       // Bytes 4 - 7 contain length information. Skip these.
       reader.skip(4);
       final int thirdFourBytes = (reader.getUInt16() << 16) | reader.getUInt16();
@@ -136,7 +149,13 @@ public final class DefaultImageHeaderParser implements ImageHeaderParser {
         // Skip some more length bytes and check for transparency/alpha flag.
         reader.skip(4);
         short flags = reader.getUInt8();
-        return (flags & WEBP_EXTENDED_ALPHA_FLAG) != 0 ? ImageType.WEBP_A : ImageType.WEBP;
+        if ((flags & WEBP_EXTENDED_ANIMATION_FLAG) != 0) {
+          return ANIMATED_WEBP;
+        } else if ((flags & WEBP_EXTENDED_ALPHA_FLAG) != 0) {
+          return ImageType.WEBP_A;
+        } else {
+          return ImageType.WEBP;
+        }
       }
       if ((fourthFourBytes & VP8_HEADER_TYPE_MASK) == VP8_HEADER_TYPE_LOSSLESS) {
         // See chromium.googlesource.com/webm/libwebp/+/master/doc/webp-lossless-bitstream-spec.txt
@@ -153,6 +172,46 @@ public final class DefaultImageHeaderParser implements ImageHeaderParser {
       // }
       return UNKNOWN;
     }
+  }
+
+  /**
+   * Check if the bits look like an AVIF Image. AVIF Specification:
+   * https://aomediacodec.github.io/av1-avif/
+   *
+   * @return AVIF or ANIMATED_AVIF if the first few bytes look like it could be an AVIF Image or an
+   *     animated AVIF Image respectively, UNKNOWN otherwise.
+   */
+  private ImageType sniffAvif(Reader reader, int boxSize) throws IOException {
+    int chunkType = (reader.getUInt16() << 16) | reader.getUInt16();
+    if (chunkType != FTYP_HEADER) {
+      return UNKNOWN;
+    }
+    // majorBrand.
+    int brand = (reader.getUInt16() << 16) | reader.getUInt16();
+    // The overall logic is that, if any of the brands are 'avis', then we can conclude immediately
+    // that it is an animated AVIF image. Otherwise, we conclude after seeing all the brands that if
+    // one of them is 'avif', the it is a still AVIF image.
+    if (brand == AVIS_BRAND) {
+      return ANIMATED_AVIF;
+    }
+    boolean avifBrandSeen = brand == AVIF_BRAND;
+    // Skip the minor version.
+    reader.skip(4);
+    // Check the first five minor brands. While there could theoretically be more than five minor
+    // brands, it is rare in practice. This way we stop the loop from running several times on a
+    // blob that just happened to look like an ftyp box.
+    int sizeRemaining = boxSize - 16;
+    if (sizeRemaining % 4 == 0) {
+      for (int i = 0; i < 5 && sizeRemaining > 0; ++i, sizeRemaining -= 4) {
+        brand = (reader.getUInt16() << 16) | reader.getUInt16();
+        if (brand == AVIS_BRAND) {
+          return ANIMATED_AVIF;
+        } else if (brand == AVIF_BRAND) {
+          avifBrandSeen = true;
+        }
+      }
+    }
+    return avifBrandSeen ? AVIF : UNKNOWN;
   }
 
   /**
@@ -521,7 +580,7 @@ public final class DefaultImageHeaderParser implements ImageHeaderParser {
       int numBytesRead = 0;
       int lastReadResult = 0;
       while (numBytesRead < byteCount
-          && ((lastReadResult = is.read(buffer, numBytesRead, byteCount - numBytesRead)) != -1)) {
+          && (lastReadResult = is.read(buffer, numBytesRead, byteCount - numBytesRead)) != -1) {
         numBytesRead += lastReadResult;
       }
 

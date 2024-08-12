@@ -1,5 +1,6 @@
 package com.bumptech.glide.load.engine;
 
+import static com.bumptech.glide.RobolectricConstants.ROBOLECTRIC_SDK;
 import static com.bumptech.glide.tests.Util.anyResource;
 import static com.bumptech.glide.tests.Util.isADataSource;
 import static com.bumptech.glide.tests.Util.mockResource;
@@ -17,7 +18,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.robolectric.annotation.LooperMode.Mode.LEGACY;
 
 import com.bumptech.glide.GlideContext;
 import com.bumptech.glide.Priority;
@@ -32,7 +32,6 @@ import com.bumptech.glide.load.engine.executor.GlideExecutor;
 import com.bumptech.glide.load.engine.executor.MockGlideExecutor;
 import com.bumptech.glide.request.ResourceCallback;
 import com.bumptech.glide.tests.BackgroundUtil;
-import com.bumptech.glide.tests.GlideShadowLooper;
 import com.bumptech.glide.util.Executors;
 import java.util.HashMap;
 import java.util.Map;
@@ -44,13 +43,9 @@ import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
-import org.robolectric.annotation.LooperMode;
 
-@LooperMode(LEGACY)
 @RunWith(RobolectricTestRunner.class)
-@Config(
-    sdk = 18,
-    shadows = {GlideShadowLooper.class})
+@Config(sdk = ROBOLECTRIC_SDK)
 @SuppressWarnings("unchecked")
 public class EngineTest {
   private EngineTestHarness harness;
@@ -281,7 +276,7 @@ public class EngineTest {
   public void testEngineIsNotSetAsResourceListenerIfResourceIsNullOnJobComplete() {
     harness.doLoad();
 
-    harness.getEngine().onEngineJobComplete(harness.job, harness.cacheKey, /*resource=*/ null);
+    harness.getEngine().onEngineJobComplete(harness.job, harness.cacheKey, /* resource= */ null);
   }
 
   @Test
@@ -295,7 +290,7 @@ public class EngineTest {
 
   @Test
   public void testDoesNotPutNullResourceInActiveResourcesOnEngineComplete() {
-    harness.getEngine().onEngineJobComplete(harness.job, harness.cacheKey, /*resource=*/ null);
+    harness.getEngine().onEngineJobComplete(harness.job, harness.cacheKey, /* resource= */ null);
     assertThat(harness.activeResources.get(harness.cacheKey)).isNull();
   }
 
@@ -414,8 +409,8 @@ public class EngineTest {
             eq(harness.cacheKey),
             eq(true) /*isMemoryCacheable*/,
             eq(false) /*useUnlimitedSourceGeneratorPool*/,
-            /*useAnimationPool=*/ eq(false),
-            /*onlyRetrieveFromCache=*/ eq(false));
+            /* useAnimationPool= */ eq(false),
+            /* onlyRetrieveFromCache= */ eq(false));
   }
 
   @Test
@@ -428,8 +423,8 @@ public class EngineTest {
             eq(harness.cacheKey),
             eq(true) /*isMemoryCacheable*/,
             eq(true) /*useUnlimitedSourceGeneratorPool*/,
-            /*useAnimationPool=*/ eq(false),
-            /*onlyRetrieveFromCache=*/ eq(false));
+            /* useAnimationPool= */ eq(false),
+            /* onlyRetrieveFromCache= */ eq(false));
   }
 
   @Test
@@ -661,7 +656,7 @@ public class EngineTest {
 
     final Jobs jobs = new Jobs();
     final ActiveResources activeResources =
-        new ActiveResources(/*isActiveResourceRetentionAllowed=*/ true);
+        new ActiveResources(/* isActiveResourceRetentionAllowed= */ true);
 
     final int width = 100;
     final int height = 100;
@@ -724,7 +719,7 @@ public class EngineTest {
               options,
               isMemoryCacheable,
               useUnlimitedSourceGeneratorPool,
-              /*useAnimationPool=*/ false,
+              /* useAnimationPool= */ false,
               onlyRetrieveFromCache,
               cb,
               Executors.directExecutor());
@@ -746,7 +741,7 @@ public class EngineTest {
                 engineJobFactory,
                 decodeJobFactory,
                 resourceRecycler,
-                /*isActiveResourceRetentionAllowed=*/ true);
+                /* isActiveResourceRetentionAllowed= */ true);
       }
       return engine;
     }

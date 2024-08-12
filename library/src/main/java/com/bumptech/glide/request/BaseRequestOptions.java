@@ -28,6 +28,7 @@ import com.bumptech.glide.load.resource.bitmap.Downsampler;
 import com.bumptech.glide.load.resource.bitmap.DrawableTransformation;
 import com.bumptech.glide.load.resource.bitmap.FitCenter;
 import com.bumptech.glide.load.resource.bitmap.VideoDecoder;
+import com.bumptech.glide.load.resource.drawable.ResourceDrawableDecoder;
 import com.bumptech.glide.load.resource.gif.GifDrawable;
 import com.bumptech.glide.load.resource.gif.GifDrawableTransformation;
 import com.bumptech.glide.load.resource.gif.GifOptions;
@@ -180,6 +181,15 @@ public abstract class BaseRequestOptions<T extends BaseRequestOptions<T>> implem
 
   /**
    * If set to true, will only load an item if found in the cache, and will not fetch from source.
+   *
+   * <p>By 'cache' we mean both the in memory cache and both types of disk cache ({@link
+   * DiskCacheStrategy#DATA} and {@link DiskCacheStrategy#RESOURCE}). If this flag is set to {@code
+   * true} and the item is not in the memory cache, but it is in one of the disk caches, the load
+   * will complete asynchronously.
+   *
+   * <p>If you'd like to only load an item from the memory cache. You can call this method with
+   * {@code true} and also call {@link #diskCacheStrategy(DiskCacheStrategy)} with {@link
+   * DiskCacheStrategy#NONE}
    */
   @NonNull
   @CheckResult
@@ -396,18 +406,11 @@ public abstract class BaseRequestOptions<T extends BaseRequestOptions<T>> implem
 
   /**
    * Sets the {@link android.content.res.Resources.Theme} to apply when loading {@link Drawable}s
-   * for resource ids provided via {@link #error(int)}, {@link #placeholder(int)}, and {@link
-   * #fallback(Drawable)}.
+   * for resource ids, including those provided via {@link #error(int)}, {@link #placeholder(int)},
+   * and {@link #fallback(Drawable)}.
    *
-   * <p>The theme is <em>NOT</em> applied in the decoder that will attempt to decode a given
-   * resource id model on Glide's background threads. The theme is used exclusively on the main
-   * thread to obtain placeholder/error/fallback drawables to avoid leaking Activities.
-   *
-   * <p>If the {@link android.content.Context} of the {@link android.app.Fragment} or {@link
-   * android.app.Activity} used to start this load has a different {@link
-   * android.content.res.Resources.Theme}, the {@link android.content.res.Resources.Theme} provided
-   * here will override the {@link android.content.res.Resources.Theme} of the {@link
-   * android.content.Context}.
+   * <p>The {@link android.content.res.Resources.Theme} provided here will override the {@link
+   * android.content.res.Resources.Theme} of the application {@link android.content.Context}.
    *
    * @param theme The theme to use when loading Drawables.
    * @return this request builder.
@@ -418,11 +421,14 @@ public abstract class BaseRequestOptions<T extends BaseRequestOptions<T>> implem
     if (isAutoCloneEnabled) {
       return clone().theme(theme);
     }
-
     this.theme = theme;
-    fields |= THEME;
-
-    return selfOrThrowIfLocked();
+    if (theme != null) {
+      fields |= THEME;
+      return set(ResourceDrawableDecoder.THEME, theme);
+    } else {
+      fields &= ~THEME;
+      return removeOption(ResourceDrawableDecoder.THEME);
+    }
   }
 
   /**
@@ -552,6 +558,14 @@ public abstract class BaseRequestOptions<T extends BaseRequestOptions<T>> implem
     Preconditions.checkNotNull(option);
     Preconditions.checkNotNull(value);
     options.set(option, value);
+    return selfOrThrowIfLocked();
+  }
+
+  T removeOption(@NonNull Option<?> option) {
+    if (isAutoCloneEnabled) {
+      return clone().removeOption(option);
+    }
+    options.remove(option);
     return selfOrThrowIfLocked();
   }
 
@@ -827,7 +841,7 @@ public abstract class BaseRequestOptions<T extends BaseRequestOptions<T>> implem
     }
 
     downsample(downsampleStrategy);
-    return transform(transformation, /*isRequired=*/ false);
+    return transform(transformation, /* isRequired= */ false);
   }
 
   // calling transform() on the result of clone() requires greater access.
@@ -890,7 +904,7 @@ public abstract class BaseRequestOptions<T extends BaseRequestOptions<T>> implem
   @NonNull
   @CheckResult
   public T transform(@NonNull Transformation<Bitmap> transformation) {
-    return transform(transformation, /*isRequired=*/ true);
+    return transform(transformation, /* isRequired= */ true);
   }
 
   /**
@@ -911,7 +925,7 @@ public abstract class BaseRequestOptions<T extends BaseRequestOptions<T>> implem
   @CheckResult
   public T transform(@NonNull Transformation<Bitmap>... transformations) {
     if (transformations.length > 1) {
-      return transform(new MultiTransformation<>(transformations), /*isRequired=*/ true);
+      return transform(new MultiTransformation<>(transformations), /* isRequired= */ true);
     } else if (transformations.length == 1) {
       return transform(transformations[0]);
     } else {
@@ -938,7 +952,7 @@ public abstract class BaseRequestOptions<T extends BaseRequestOptions<T>> implem
   @CheckResult
   @Deprecated
   public T transforms(@NonNull Transformation<Bitmap>... transformations) {
-    return transform(new MultiTransformation<>(transformations), /*isRequired=*/ true);
+    return transform(new MultiTransformation<>(transformations), /* isRequired= */ true);
   }
 
   /**
@@ -957,7 +971,7 @@ public abstract class BaseRequestOptions<T extends BaseRequestOptions<T>> implem
   @NonNull
   @CheckResult
   public T optionalTransform(@NonNull Transformation<Bitmap> transformation) {
-    return transform(transformation, /*isRequired=*/ false);
+    return transform(transformation, /* isRequired= */ false);
   }
 
   @NonNull
@@ -1000,7 +1014,7 @@ public abstract class BaseRequestOptions<T extends BaseRequestOptions<T>> implem
   @CheckResult
   public <Y> T optionalTransform(
       @NonNull Class<Y> resourceClass, @NonNull Transformation<Y> transformation) {
-    return transform(resourceClass, transformation, /*isRequired=*/ false);
+    return transform(resourceClass, transformation, /* isRequired= */ false);
   }
 
   @NonNull
@@ -1044,7 +1058,7 @@ public abstract class BaseRequestOptions<T extends BaseRequestOptions<T>> implem
   @CheckResult
   public <Y> T transform(
       @NonNull Class<Y> resourceClass, @NonNull Transformation<Y> transformation) {
-    return transform(resourceClass, transformation, /*isRequired=*/ true);
+    return transform(resourceClass, transformation, /* isRequired= */ true);
   }
 
   /**
@@ -1195,31 +1209,42 @@ public abstract class BaseRequestOptions<T extends BaseRequestOptions<T>> implem
     return selfOrThrowIfLocked();
   }
 
+  /**
+   * Returns {@code true} if this {@link BaseRequestOptions} is equivalent to the given
+   * {@link BaseRequestOptions} (has all of the same options and sizes).
+   *
+   * <p>This method is identical to {@link #equals(Object)}, but this can not be overridden. We need
+   * to use this method instead of {@link #equals(Object)}, because child classes may have additional
+   * fields, such as listeners and models, that should not be considered when checking for equality.
+   */
+  public final boolean isEquivalentTo(BaseRequestOptions<?> other) {
+    return Float.compare(other.sizeMultiplier, sizeMultiplier) == 0
+        && errorId == other.errorId
+        && Util.bothNullOrEqual(errorPlaceholder, other.errorPlaceholder)
+        && placeholderId == other.placeholderId
+        && Util.bothNullOrEqual(placeholderDrawable, other.placeholderDrawable)
+        && fallbackId == other.fallbackId
+        && Util.bothNullOrEqual(fallbackDrawable, other.fallbackDrawable)
+        && isCacheable == other.isCacheable
+        && overrideHeight == other.overrideHeight
+        && overrideWidth == other.overrideWidth
+        && isTransformationRequired == other.isTransformationRequired
+        && isTransformationAllowed == other.isTransformationAllowed
+        && useUnlimitedSourceGeneratorsPool == other.useUnlimitedSourceGeneratorsPool
+        && onlyRetrieveFromCache == other.onlyRetrieveFromCache
+        && diskCacheStrategy.equals(other.diskCacheStrategy)
+        && priority == other.priority
+        && options.equals(other.options)
+        && transformations.equals(other.transformations)
+        && resourceClass.equals(other.resourceClass)
+        && Util.bothNullOrEqual(signature, other.signature)
+        && Util.bothNullOrEqual(theme, other.theme);
+  }
+
   @Override
   public boolean equals(Object o) {
     if (o instanceof BaseRequestOptions<?>) {
-      BaseRequestOptions<?> other = (BaseRequestOptions<?>) o;
-      return Float.compare(other.sizeMultiplier, sizeMultiplier) == 0
-          && errorId == other.errorId
-          && Util.bothNullOrEqual(errorPlaceholder, other.errorPlaceholder)
-          && placeholderId == other.placeholderId
-          && Util.bothNullOrEqual(placeholderDrawable, other.placeholderDrawable)
-          && fallbackId == other.fallbackId
-          && Util.bothNullOrEqual(fallbackDrawable, other.fallbackDrawable)
-          && isCacheable == other.isCacheable
-          && overrideHeight == other.overrideHeight
-          && overrideWidth == other.overrideWidth
-          && isTransformationRequired == other.isTransformationRequired
-          && isTransformationAllowed == other.isTransformationAllowed
-          && useUnlimitedSourceGeneratorsPool == other.useUnlimitedSourceGeneratorsPool
-          && onlyRetrieveFromCache == other.onlyRetrieveFromCache
-          && diskCacheStrategy.equals(other.diskCacheStrategy)
-          && priority == other.priority
-          && options.equals(other.options)
-          && transformations.equals(other.transformations)
-          && resourceClass.equals(other.resourceClass)
-          && Util.bothNullOrEqual(signature, other.signature)
-          && Util.bothNullOrEqual(theme, other.theme);
+      return isEquivalentTo((BaseRequestOptions<?>) o);
     }
     return false;
   }

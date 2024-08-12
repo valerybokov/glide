@@ -1,5 +1,6 @@
 package com.bumptech.glide.load.resource.bitmap;
 
+import static com.bumptech.glide.RobolectricConstants.ROBOLECTRIC_SDK;
 import static com.bumptech.glide.tests.Util.mockResource;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -26,7 +27,7 @@ import org.robolectric.RobolectricTestRunner;
 import org.robolectric.annotation.Config;
 
 @RunWith(RobolectricTestRunner.class)
-@Config(sdk = 18)
+@Config(sdk = ROBOLECTRIC_SDK)
 public class BitmapEncoderTest {
   private EncoderHarness harness;
 
@@ -42,6 +43,8 @@ public class BitmapEncoderTest {
 
   @Test
   public void testBitmapIsEncoded() throws IOException {
+    harness.bitmap.setHasAlpha(false);
+
     assertThat(harness.encode()).isEqualTo(harness.expectedData(CompressFormat.JPEG, 90));
   }
 
@@ -49,6 +52,7 @@ public class BitmapEncoderTest {
   public void testBitmapIsEncodedWithGivenQuality() throws IOException {
     int quality = 7;
     harness.setQuality(quality);
+    harness.bitmap.setHasAlpha(false);
 
     assertThat(harness.encode()).isEqualTo(harness.expectedData(CompressFormat.JPEG, quality));
   }

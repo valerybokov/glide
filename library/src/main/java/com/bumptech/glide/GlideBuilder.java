@@ -27,6 +27,8 @@ import com.bumptech.glide.manager.ConnectivityMonitorFactory;
 import com.bumptech.glide.manager.DefaultConnectivityMonitorFactory;
 import com.bumptech.glide.manager.RequestManagerRetriever;
 import com.bumptech.glide.manager.RequestManagerRetriever.RequestManagerFactory;
+import com.bumptech.glide.module.AppGlideModule;
+import com.bumptech.glide.module.GlideModule;
 import com.bumptech.glide.request.BaseRequestOptions;
 import com.bumptech.glide.request.RequestListener;
 import com.bumptech.glide.request.RequestOptions;
@@ -481,7 +483,34 @@ public final class GlideBuilder {
   public GlideBuilder setImageDecoderEnabledForBitmaps(boolean isEnabled) {
     glideExperimentsBuilder.update(
         new EnableImageDecoderForBitmaps(),
-        /*isEnabled=*/ isEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q);
+        /* isEnabled= */ isEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q);
+    return this;
+  }
+
+  /**
+   * @deprecated This method does nothing. It will be hard coded and removed in a future release
+   *     without further warning.
+   */
+  @Deprecated
+  public GlideBuilder setPreserveGainmapAndColorSpaceForTransformations(boolean isEnabled) {
+    return this;
+  }
+
+  /**
+   * @deprecated This method does nothing. It will be hard coded and removed in a future release
+   *     without further warning.
+   */
+  @Deprecated
+  public GlideBuilder setEnableHardwareGainmapFixOnU(boolean isEnabled) {
+    return this;
+  }
+
+  /**
+   * @deprecated This method does nothing. It will be hard coded and removed in a future release
+   *     without further warning.
+   */
+  @Deprecated
+  public GlideBuilder setDisableHardwareBitmapsOnO(boolean disableHardwareBitmapsOnO) {
     return this;
   }
 
@@ -496,7 +525,10 @@ public final class GlideBuilder {
   }
 
   @NonNull
-  Glide build(@NonNull Context context) {
+  Glide build(
+      @NonNull Context context,
+      List<GlideModule> manifestModules,
+      AppGlideModule annotationGeneratedGlideModule) {
     if (sourceExecutor == null) {
       sourceExecutor = GlideExecutor.newSourceExecutor();
     }
@@ -558,7 +590,7 @@ public final class GlideBuilder {
 
     GlideExperiments experiments = glideExperimentsBuilder.build();
     RequestManagerRetriever requestManagerRetriever =
-        new RequestManagerRetriever(requestManagerFactory, experiments);
+        new RequestManagerRetriever(requestManagerFactory);
 
     return new Glide(
         context,
@@ -572,6 +604,8 @@ public final class GlideBuilder {
         defaultRequestOptionsFactory,
         defaultTransitionOptions,
         defaultRequestListeners,
+        manifestModules,
+        annotationGeneratedGlideModule,
         experiments);
   }
 
@@ -582,11 +616,6 @@ public final class GlideBuilder {
     ManualOverrideHardwareBitmapMaxFdCount(int fdCount) {
       this.fdCount = fdCount;
     }
-  }
-
-  /** See {@link #setWaitForFramesAfterTrimMemory(boolean)}. */
-  public static final class WaitForFramesAfterTrimMemory implements Experiment {
-    private WaitForFramesAfterTrimMemory() {}
   }
 
   static final class EnableImageDecoderForBitmaps implements Experiment {}
